@@ -1,6 +1,7 @@
 package com.sensorcon.sdhelper;
 
 import android.os.Handler;
+import android.os.HandlerThread;
 
 import com.sensorcon.sensordrone.Drone;
 import com.sensorcon.sdhelper.OnOffRunnable;
@@ -16,12 +17,13 @@ import com.sensorcon.sdhelper.OnOffRunnable;
 public class SDStreamer implements OnOffRunnable {
 
 	private Drone myDrone; // The Drone
-	
-	private boolean OnOff = false; // Off by default
+
+	private boolean mEnabled = false; // Off by default
 	private int quickSystemInt; // the QS_SENSOR_TYPE to measure
-	
+
+	private HandlerThread mHandlerThread;
 	// A handler to request measurements at an interval
-	public Handler streamHandler = new Handler(); 
+	public Handler streamHandler;
 
 	@Override
 	public void run() {
@@ -30,7 +32,7 @@ public class SDStreamer implements OnOffRunnable {
 			disable();
 		}
 		// If we're enabled, take a measurement!
-		if(OnOff) {
+		if (mEnabled) {
 			// Take a measurement
 			myDrone.quickMeasure(quickSystemInt);
 		}
@@ -38,10 +40,12 @@ public class SDStreamer implements OnOffRunnable {
 
 	@Override
 	public void disable() {
-		OnOff = false; // Disable the streamer
+		mEnabled = false; // Disable the streamer
 
 		// Shut down the Handler
 		streamHandler.removeCallbacksAndMessages(null);
+
+		mHandlerThread.quit();
 	}
 
 	// Constructors
@@ -50,11 +54,12 @@ public class SDStreamer implements OnOffRunnable {
 		quickSystemInt = qsInt; // The QS_SENSOR_TYPE
 	}
 
-
 	@Override
 	public void enable() {
-		OnOff = true; // Enable the streamer
+		mEnabled = true; // Enable the streamer
+
+		mHandlerThread = new HandlerThread("Sensor Drone Streamer");
+		mHandlerThread.start();
+		streamHandler = new Handler(mHandlerThread.getLooper());
 	}
 }
-
-

@@ -1,6 +1,7 @@
 package com.sensorcon.sdhelper;
 
 import android.os.Handler;
+import android.os.HandlerThread;
 
 import com.sensorcon.sensordrone.Drone;
 import com.sensorcon.sdhelper.OnOffRunnable;
@@ -9,83 +10,88 @@ import com.sensorcon.sdhelper.OnOffRunnable;
  * This is a class that will blink the LEDs at a defined interval
  * 
  * @author Mark Rudolph, Sensorcon, Inc.
- *
+ * 
  */
 public class ConnectionBlinker implements OnOffRunnable {
 
 	// Settings and such
 	private Drone myDrone;
-	private boolean onOff;
-	private boolean LEDonOff;
-	private int rate;
-	private Handler blinkHandler = new Handler();
-	private int myRed;
-	private int myGreen;
-	private int myBlue;
+	private boolean mEnabled;
+	private boolean mLedEnabled;
+	private int mRate;
+	private HandlerThread mHandlerThread;
+	private Handler mBlinkHandler;
+	private int mRed;
+	private int mGreen;
+	private int mBlue;
 
 	/*
-	 * Our constructor sets all of the dettings, but we provide methods to chang them later as well.
+	 * Our constructor sets all of the dettings, but we provide methods to chang
+	 * them later as well.
 	 */
-	public ConnectionBlinker(Drone drone, int msDelay, int Red, int Green, int Blue) {
+	public ConnectionBlinker(Drone drone, int msDelay, int Red, int Green,
+			int Blue) {
 		myDrone = drone;
-		rate = msDelay;
-		myRed = Red;
-		myGreen = Green;
-		myBlue = Blue;
+		mRate = msDelay;
+		mRed = Red;
+		mGreen = Green;
+		mBlue = Blue;
 	}
 
 	/*
 	 * Set the rate
 	 */
 	public void setRate(int msDelay) {
-		rate = msDelay;
+		mRate = msDelay;
 	}
-	
+
 	/*
 	 * Set the LED colors
 	 */
-	public void setColors(int Red, int Green, int Blue){
-		myRed = Red;
-		myGreen = Green;
-		myBlue = Blue;
+	public void setColors(int Red, int Green, int Blue) {
+		mRed = Red;
+		mGreen = Green;
+		mBlue = Blue;
 	}
-
 
 	@Override
 	public void run() {
 		// Are we enabled?
-		if (onOff) {
+		if (mEnabled) {
 			// Toggle
-			if (LEDonOff) {
-				myDrone.setLEDs(myRed, myGreen, myBlue);
+			if (mLedEnabled) {
+				myDrone.setLEDs(mRed, mGreen, mBlue);
 			} else {
 				myDrone.setLEDs(0, 0, 0);
 			}
-			
-			LEDonOff = !LEDonOff; // Flip-Flop
-			
+
+			mLedEnabled = !mLedEnabled; // Flip-Flop
+
 			// Do again at specified rate
-			blinkHandler.postDelayed(this, rate);
+			mBlinkHandler.postDelayed(this, mRate);
 		}
 	}
 
 	@Override
 	public void disable() {
-		onOff = false; // Disable
-		
+		mEnabled = false; // Disable
+
 		// Shut down the handler
-		blinkHandler.removeCallbacksAndMessages(null);
-		
+		mBlinkHandler.removeCallbacksAndMessages(null);
+
+		mHandlerThread.quit();
+
 		// Make sure the LEDs are off (in case we were disabled mid-blink).
 		myDrone.setLEDs(0, 0, 0);
 	}
 
 	@Override
 	public void enable() {
-		onOff = true; // Enable
-		LEDonOff = true; // Set ready to blink on
+		mEnabled = true; // Enable
+		mLedEnabled = true; // Set ready to blink on
+		mHandlerThread = new HandlerThread("ConnectionBlinker handler thread");
+		mHandlerThread.start();
+		mBlinkHandler = new Handler(mHandlerThread.getLooper());
 	}
 
 }
-
-
